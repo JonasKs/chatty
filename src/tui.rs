@@ -1,99 +1,76 @@
-use std::{
-    io::{self, stdout, BufWriter, Stdout, Write},
-    sync::{Arc, RwLock},
-};
+use crate::app::{App, AppResult};
+use crate::event::EventHandler;
+use crate::ui;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::backend::Backend;
+use ratatui::Terminal;
+use std::io;
+use std::panic;
 
-use bytes::Bytes;
-use color_eyre::eyre::Result;
-use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
-use tokio::{sync::mpsc::channel, sync::mpsc::Receiver, sync::mpsc::Sender, task};
-
-use super::Size;
-use crossterm::{execute, terminal::*};
-use ratatui::prelude::*;
-
-/// A type alias for the terminal type used in this application
-pub type Tui = Terminal<CrosstermBackend<Stdout>>;
-
-/// Initialize the terminal
-pub fn init() -> Result<Tui> {
-    execute!(stdout(), EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    Ok(terminal)
+/// Representation of a terminal user interface.
+///
+/// It is responsible for setting up the terminal,
+/// initializing the interface and handling the draw events.
+#[derive(Debug)]
+pub struct Tui<B: Backend> {
+    /// Interface to the Terminal.
+    terminal: Terminal<B>,
+    /// Terminal event handler.
+    pub events: EventHandler,
 }
 
-pub fn setup_pty(terminal: Tui) -> Result<Sender<Bytes>> {
-    let size = Size {
-        rows: terminal.size()?.height,
-        cols: terminal.size()?.width,
-    };
-
-    let pty_system = NativePtySystem::default();
-    let cwd = std::env::current_dir().unwrap();
-    let mut cmd = CommandBuilder::new_default_prog();
-    cmd.cwd(cwd);
-
-    let pair = pty_system
-        .openpty(PtySize {
-            rows: size.rows,
-            cols: size.cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .unwrap();
-    // Wait for the child to complete
-    task::spawn_blocking(move || {
-        let mut child = pair.slave.spawn_command(cmd).unwrap();
-        let _child_exit_status = child.wait().unwrap();
-        drop(pair.slave);
-    });
-
-    let mut reader = pair.master.try_clone_reader().unwrap();
-    let parser = Arc::new(RwLock::new(vt100::Parser::new(size.rows, size.cols, 0)));
-    {
-        let parser = parser.clone();
-        task::spawn_blocking(move || {
-            // Consume the output from the child
-            // Can't read the full buffer, since that would wait for EOF
-            let mut buf = [0u8; 8192];
-            let mut processed_buf = Vec::new();
-            loop {
-                let size = reader.read(&mut buf).unwrap();
-                if size == 0 {
-                    break;
-                }
-                if size > 0 {
-                    processed_buf.extend_from_slice(&buf[..size]);
-                    let mut parser = parser.write().unwrap();
-                    parser.process(&processed_buf);
-
-                    // Clear the processed portion of the buffer
-                    processed_buf.clear();
-                }
-            }
-        });
+impl<B: Backend> Tui<B> {
+    /// Constructs a new instance of [`Tui`].
+    pub fn new(terminal: Terminal<B>, events: EventHandler) -> Self {
+        Self { terminal, events }
     }
 
-    let (tx, mut rx) = channel::<Bytes>(32);
-    let mut writer = BufWriter::new(pair.master.take_writer().unwrap());
+    /// Initializes the terminal interface.
+    ///
+    /// It enables the raw mode and sets terminal properties.
+    pub fn init(&mut self) -> AppResult<()> {
+        terminal::enable_raw_mode()?;
+        crossterm::execute!(io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
 
-    // Drop writer on purpose
-    tokio::spawn(async move {
-        while let Some(bytes) = rx.recv().await {
-            writer.write_all(&bytes).unwrap();
-            writer.flush().unwrap();
-        }
-        drop(pair.master);
-    });
+        // Define a custom panic hook to reset the terminal properties.
+        // This way, you won't have your terminal messed up if an unexpected error happens.
+        let panic_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |panic| {
+            Self::reset().expect("failed to reset the terminal");
+            panic_hook(panic);
+        }));
 
-    Ok(tx)
-}
+        self.terminal.hide_cursor()?;
+        self.terminal.clear()?;
+        Ok(())
+    }
 
-/// Restore the terminal to its original state
-pub fn restore(mut terminal: Tui) -> Result<()> {
-    execute!(stdout(), LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-    terminal.show_cursor()?;
-    Ok(())
+    /// [`Draw`] the terminal interface by [`rendering`] the widgets.
+    ///
+    /// [`Draw`]: ratatui::Terminal::draw
+    /// [`rendering`]: crate::ui::render
+    pub fn draw(&mut self, app: &mut App) -> AppResult<()> {
+        self.terminal.draw(|frame| ui::render(app, frame))?;
+        Ok(())
+    }
+
+    /// Resets the terminal interface.
+    ///
+    /// This function is also used for the panic hook to revert
+    /// the terminal properties if unexpected errors occur.
+    fn reset() -> AppResult<()> {
+        terminal::disable_raw_mode()?;
+        crossterm::execute!(io::stderr(), LeaveAlternateScreen, DisableMouseCapture)?;
+        Ok(())
+    }
+
+    /// Exits the terminal interface.
+    ///
+    /// It disables the raw mode and reverts back the terminal properties.
+    pub fn exit(&mut self) -> AppResult<()> {
+        Self::reset()?;
+        self.terminal.show_cursor()?;
+        Ok(())
+    }
 }

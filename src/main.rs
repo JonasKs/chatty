@@ -1,35 +1,37 @@
-use std::sync::{Arc, RwLock};
-
-use bytes::Bytes;
-use color_eyre::eyre::Result;
-use tokio::sync::mpsc::Sender;
-use tui::{init, restore, setup_pty, Tui};
-
-mod errors;
-mod tui;
-
-struct Size {
-    cols: u16,
-    rows: u16,
-}
-
-struct AppState {
-    size: Size,
-}
+use terminal_ai_ops::app::{App, AppResult};
+use terminal_ai_ops::event::{Event, EventHandler};
+use terminal_ai_ops::handler::handle_key_events;
+use terminal_ai_ops::tui::Tui;
+use std::io;
+use ratatui::backend::CrosstermBackend;
+use ratatui::Terminal;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let mut terminal = init()?;
-    let rx = setup_pty(terminal)?;
+async fn main() -> AppResult<()> {
+    // Create an application.
+    let mut app = App::new();
 
-    restore(terminal)?;
-    Ok(())
-}
+    // Initialize the terminal user interface.
+    let backend = CrosstermBackend::new(io::stderr());
+    let terminal = Terminal::new(backend)?;
+    let events = EventHandler::new(250);
+    let mut tui = Tui::new(terminal, events);
+    tui.init()?;
 
-async fn run(
-    terminal: &mut Tui,
-    parser: Arc<RwLock<vt100::Parser>>,
-    sender: Sender<Bytes>,
-) -> Result<()> {
+    // Start the main loop.
+    while app.running {
+        // Render the user interface.
+        tui.draw(&mut app)?;
+        // Handle events.
+        match tui.events.next().await? {
+            Event::Tick => app.tick(),
+            Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
+            Event::Mouse(_) => {}
+            Event::Resize(_, _) => {}
+        }
+    }
+
+    // Exit the user interface.
+    tui.exit()?;
     Ok(())
 }
