@@ -1,22 +1,24 @@
+use ratatui::backend::CrosstermBackend;
+use ratatui::Terminal;
+use std::io;
 use terminal_ai_ops::app::{App, AppResult};
 use terminal_ai_ops::event::{Event, EventHandler};
 use terminal_ai_ops::handler::handle_key_events;
 use terminal_ai_ops::tui::Tui;
-use std::io;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
+use terminal_ai_ops::widgets::terminal;
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
-    // Create an application.
-    let mut app = App::new();
-
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(io::stderr());
     let terminal = Terminal::new(backend)?;
+    let terminal_widget = terminal::TerminalWidget::new(&terminal)?;
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
+
+    // Create an application.
+    let mut app = App::new(terminal_widget);
 
     // Start the main loop.
     while app.running {
@@ -25,7 +27,7 @@ async fn main() -> AppResult<()> {
         // Handle events.
         match tui.events.next().await? {
             Event::Tick => app.tick(),
-            Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
+            Event::Key(key_event) => handle_key_events(key_event, &mut app).await?,
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
         }

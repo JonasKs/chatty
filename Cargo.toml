@@ -6,7 +6,12 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
+async-openai = "0.23.3"
+bytes = "1.6.0"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
 futures = "0.3.30"
-ratatui = "0.26.0"
-tokio = { version = "1.35.1", features = ["full"] }
+portable-pty = "0.8.1"
+ratatui = "0.26.3"
+tokio = { version = "1.38.0", features = ["full"] }
+tui-term = "0.1.11"
+vt100 = "0.15.2"
