@@ -13,5 +13,5 @@ pub mod tui;
 /// Event handler.
 pub mod handler;
 
-/// Widgets.
-pub mod widgets;
+/// Terminal utils.
+pub mod terminal_utils;

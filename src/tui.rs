@@ -7,6 +7,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::{self, Stderr};
 use std::panic;
+use std::sync::{Arc, RwLock};
 
 /// Representation of a terminal user interface.
 ///
@@ -50,8 +51,9 @@ impl Tui {
     ///
     /// [`Draw`]: ratatui::Terminal::draw
     /// [`rendering`]: crate::ui::render
-    pub fn draw(&mut self, app: &mut App) -> AppResult<()> {
-        self.terminal.draw(|frame| ui::render(app, frame))?;
+    pub fn draw(&mut self, app: &mut App, parser: Arc<RwLock<vt100::Parser>>) -> AppResult<()> {
+        self.terminal
+            .draw(|frame| ui::render(app, frame, parser.read().unwrap().screen()))?;
         Ok(())
     }
 

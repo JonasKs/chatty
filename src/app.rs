@@ -3,8 +3,6 @@ use std::error;
 use bytes::Bytes;
 use tokio::sync::mpsc::Sender;
 
-use crate::widgets::terminal::TerminalWidget;
-
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
@@ -12,15 +10,15 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 pub struct App {
     /// Is the application running?
     pub running: bool,
-    pub terminal_widget: TerminalWidget,
+    pub sender_to_terminal: Sender<Bytes>,
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new(terminal_widget: TerminalWidget) -> Self {
+    pub fn new(sender_to_terminal: Sender<Bytes>) -> Self {
         Self {
             running: true,
-            terminal_widget,
+            sender_to_terminal,
         }
     }
 

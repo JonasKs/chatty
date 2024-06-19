@@ -16,11 +16,15 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
             }
         }
         KeyCode::Char(input) => app
-            .terminal_widget
             .sender_to_terminal
             .send(Bytes::from(input.to_string().into_bytes()))
             .await
             .unwrap(),
+        KeyCode::Enter => {
+            // Call async function with async loop
+            // send result to output channel
+            todo!()
+        }
         // Other handlers you could add here.
         _ => {}
     }
