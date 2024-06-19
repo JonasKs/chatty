@@ -1,9 +1,10 @@
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stderr;
+use std::sync::RwLock;
 use std::{
     io::{BufWriter, Write},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex},
 };
 
 use bytes::Bytes;
@@ -12,6 +13,7 @@ use tokio::{sync::mpsc::channel, sync::mpsc::Sender, task};
 
 pub fn new(
     terminal: &Terminal<CrosstermBackend<Stderr>>,
+    terminal_context: Arc<Mutex<String>>,
 ) -> (Arc<RwLock<vt100::Parser>>, Sender<Bytes>) {
     let pty_system = NativePtySystem::default();
     let cwd = std::env::current_dir().unwrap();
@@ -56,10 +58,8 @@ pub fn new(
                     let mut parser = parser.write().unwrap();
                     parser.process(&processed_buf);
 
-                    {
-                        let mut terminal_context = app_state.terminal_output.lock().await;
-                        *terminal_context = parser.screen().contents();
-                    }
+                    let mut terminal_context = terminal_context.lock().unwrap();
+                    *terminal_context = parser.screen().contents();
 
                     // Clear the processed portion of the buffer
                     processed_buf.clear();

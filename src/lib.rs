@@ -15,3 +15,9 @@ pub mod handler;
 
 /// Terminal utils.
 pub mod terminal_utils;
+
+/// Config
+pub mod config;
+
+/// AI
+pub mod ai;
