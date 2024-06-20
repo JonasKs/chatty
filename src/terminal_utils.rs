@@ -1,6 +1,6 @@
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use std::io::Stderr;
+use std::io::{Stderr, Stdout};
 use std::{
     io::{BufWriter, Write},
     sync::Arc,
@@ -13,7 +13,7 @@ use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use tokio::task;
 
 pub fn new(
-    terminal: &Terminal<CrosstermBackend<Stderr>>,
+    terminal: &Terminal<CrosstermBackend<Stdout>>,
     terminal_context: Arc<Mutex<String>>,
 ) -> (Arc<RwLock<vt100::Parser>>, Sender<Bytes>) {
     let pty_system = NativePtySystem::default();

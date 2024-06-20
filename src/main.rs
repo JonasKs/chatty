@@ -17,7 +17,7 @@ async fn main() {
     let (action_sender, mut action_receiver) = mpsc::unbounded_channel::<Action>();
     let (event_sender, event_receiver) = mpsc::unbounded_channel::<Event>();
 
-    let mut terminal = Terminal::new(CrosstermBackend::new(io::stderr())).unwrap();
+    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout())).unwrap();
     let terminal_context = Arc::new(Mutex::new(String::new()));
     let mut app_state = AppState::new(terminal_context.clone());
     let mut event_service = EventService::new(event_receiver);
@@ -30,7 +30,7 @@ async fn main() {
     );
 
     let chat_service = ChatService::new();
-    chat_service.start(event_sender, &mut action_receiver);
+    tokio::spawn(async move { chat_service.start(event_sender, &mut action_receiver).await });
     ui_service
         .start(&mut terminal, &mut event_service, parser)
         .await;

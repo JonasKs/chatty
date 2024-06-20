@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use bytes::Bytes;
-use tokio::sync::{mpsc::UnboundedSender, Mutex};
+use tokio::sync::Mutex;
 
 enum Mode {
     Terminal,
@@ -11,7 +10,8 @@ enum Mode {
 pub struct AppState {
     pub running: bool,
     pub current_mode: Mode,
-
+    pub tick: i64,
+    pub ai_response: String,
     pub terminal_context: Arc<Mutex<String>>,
 }
 
@@ -21,6 +21,8 @@ impl AppState {
             running: true,
             current_mode: Mode::Terminal,
             terminal_context,
+            ai_response: "".to_string(),
+            tick: 0,
         }
     }
 
@@ -29,6 +31,10 @@ impl AppState {
             Mode::Chat => self.current_mode = Mode::Terminal,
             Mode::Terminal => self.current_mode = Mode::Chat,
         }
+    }
+
+    pub fn tick(&mut self) {
+        self.tick += 1;
     }
 
     pub fn quit(&mut self) {

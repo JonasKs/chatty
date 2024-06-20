@@ -6,18 +6,18 @@ use super::{
 };
 use bytes::Bytes;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent},
+    event::{DisableMouseCapture, EnableMouseCapture, KeyCode},
     terminal::{self as crossterm_terminal, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::{
-    io::{self, Stderr},
+    io::{self, Stderr, Stdout},
     panic,
     sync::Arc,
 };
@@ -58,7 +58,8 @@ impl UiService {
             outer_layout[0],
         );
 
-        let chat = Paragraph::new("hello!!!!".to_string())
+        let chat = Paragraph::new(self.app_state.ai_response.to_string())
+            .wrap(Wrap { trim: false })
             .style(Style::default().add_modifier(Modifier::BOLD))
             .alignment(Alignment::Center);
         frame.render_widget(chat, outer_layout[1]);
@@ -66,21 +67,29 @@ impl UiService {
 
     pub async fn start(
         &mut self,
-        terminal: &mut Terminal<CrosstermBackend<Stderr>>,
+        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
         event_service: &mut EventService,
         parser: Arc<RwLock<vt100::Parser>>,
     ) {
-        let screen = parser.read().await.screen().clone();
         while self.app_state.running {
+            let screen = parser.read().await.screen().clone();
             terminal.draw(|frame| self.render(frame, &screen)).unwrap();
             // Handle events
             match event_service.next().await.unwrap() {
+                Event::AIStreamResponse(stream) => self.app_state.ai_response.push_str(&stream),
+                Event::Tick => self.app_state.tick(),
                 Event::Quit => self.app_state.quit(),
                 Event::Key(key) => match key.code {
                     KeyCode::Char(char) => self
                         .terminal_sender
                         .send(Bytes::from(char.to_string().into_bytes()))
                         .await
+                        .unwrap(),
+                    KeyCode::Enter => self
+                        .action_sender
+                        .send(Action::AiRequest(
+                            "tell me a two paragraph story".to_string(),
+                        ))
                         .unwrap(),
                     _ => {}
                 },
@@ -94,7 +103,7 @@ impl UiService {
     pub fn new(
         action_sender: UnboundedSender<Action>,
         app_state: AppState,
-        terminal: &mut Terminal<CrosstermBackend<Stderr>>,
+        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
         terminal_sender: Sender<Bytes>,
     ) -> Self {
         crossterm_terminal::enable_raw_mode().unwrap();
@@ -123,7 +132,7 @@ impl UiService {
         crossterm::execute!(io::stderr(), LeaveAlternateScreen, DisableMouseCapture).unwrap();
     }
 
-    pub fn exit(&self, terminal: &mut Terminal<CrosstermBackend<Stderr>>) {
+    pub fn exit(&self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
         Self::reset();
         terminal.show_cursor().unwrap();
     }

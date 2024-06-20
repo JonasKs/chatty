@@ -4,11 +4,13 @@ use crossterm::event::{Event as CrosstermEvent, EventStream, KeyCode, KeyEvent, 
 use futures::StreamExt;
 use tokio::{sync::mpsc, time};
 
+#[derive(Debug)]
 pub enum Event {
     Tick,
     Key(KeyEvent),
     ChangeMode,
     Quit,
+    AIStreamResponse(String),
 }
 
 pub struct EventService {
@@ -27,13 +29,13 @@ impl EventService {
     pub async fn next(&mut self) -> io::Result<Event> {
         loop {
             let received_event = tokio::select! {
-                event = self.event_receiver.recv() => event,
-                event = self.crossterm_events.next() => match event {
+                event_from_receiver = self.event_receiver.recv() => event_from_receiver,
+                crossterm_event = self.crossterm_events.next() => match crossterm_event {
                     Some(Ok(input)) => self.handle_crossterm_event(input),
-                    Some(Err(_)) => None,
-                    None => None,
+                    Some(Err(err)) => {println!("{}", err); None},
+                    None => {println!("none event"); None},
                 },
-                _ = time::sleep(time::Duration::from_millis(500)) => Some(Event::Tick),
+                _ = time::sleep(time::Duration::from_millis(10)) => Some(Event::Tick),
             };
 
             if let Some(event) = received_event {
