@@ -10,9 +10,9 @@ use vt100::Screen;
 use crate::app::App;
 
 /// Renders the user interface widgets.
-pub fn render(app: &mut App, frame: &mut Frame, screen: &Screen) {
+pub async fn render(app: &mut App, frame: &mut Frame, screen: &Screen) {
     if let Some(message) = app.chat_receiver.try_recv().ok() {
-        app.chat_messages.lock().unwrap().push(message);
+        app.chat_messages.lock().await.push(message);
     }
 
     let root_box = Layout::default()
@@ -36,7 +36,7 @@ pub fn render(app: &mut App, frame: &mut Frame, screen: &Screen) {
         outer_layout[0],
     );
 
-    let chat = Paragraph::new(app.chat_messages.lock().unwrap().join(" | "))
+    let chat = Paragraph::new(app.chat_messages.lock().await.join(" | "))
         .style(Style::default().add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center);
     frame.render_widget(chat, outer_layout[1]);

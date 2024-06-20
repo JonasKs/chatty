@@ -1,6 +1,7 @@
-use std::time::Duration;
-
-use crate::app::{App, AppResult};
+use crate::{
+    ai,
+    app::{App, AppResult},
+};
 use bytes::Bytes;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -25,10 +26,11 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
         KeyCode::Enter => {
             // println!("{:#?}", app.terminal_context);
             let sender = app.chat_sender.clone();
+            let client = app.client.clone();
 
             tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-                sender.send("Hello".to_string()).await.unwrap();
+                ai::call_ai(client, sender).await;
+                // sender.send("Hello".to_string()).await.unwrap();
             });
 
             // Call async function with async loop

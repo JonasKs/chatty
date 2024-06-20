@@ -1,11 +1,11 @@
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stderr;
-use std::sync::RwLock;
 use std::{
     io::{BufWriter, Write},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
+use tokio::sync::{Mutex, RwLock};
 
 use bytes::Bytes;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
@@ -43,7 +43,7 @@ pub fn new(
     )));
     {
         let parser = parser.clone();
-        task::spawn_blocking(move || {
+        task::spawn(async move {
             // Consume the output from the child
             // Can't read the full buffer, since that would wait for EOF
             let mut buf = [0u8; 8192];
@@ -55,10 +55,10 @@ pub fn new(
                 }
                 if size > 0 {
                     processed_buf.extend_from_slice(&buf[..size]);
-                    let mut parser = parser.write().unwrap();
+                    let mut parser = parser.write().await;
                     parser.process(&processed_buf);
 
-                    let mut terminal_context = terminal_context.lock().unwrap();
+                    let mut terminal_context = terminal_context.lock().await;
                     *terminal_context = parser.screen().contents();
 
                     // Clear the processed portion of the buffer

@@ -1,13 +1,15 @@
+use async_openai::Client;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use terminal_ai_ops::app::{App, AppResult};
 use terminal_ai_ops::event::{Event, EventHandler};
 use terminal_ai_ops::handler::handle_key_events;
-use terminal_ai_ops::terminal_utils;
 use terminal_ai_ops::tui::Tui;
-use tokio::sync::mpsc::{channel, Sender};
+use terminal_ai_ops::{config, terminal_utils};
+use tokio::sync::mpsc::channel;
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
@@ -17,7 +19,8 @@ async fn main() -> AppResult<()> {
 
     let terminal_context = Arc::new(Mutex::new(String::new()));
     let chat_messages = Arc::new(Mutex::new(Vec::new()));
-    let (chat_sender, mut chat_receiver) = channel::<String>(32);
+    let (chat_sender, chat_receiver) = channel::<String>(32);
+    let client = Arc::new(Mutex::new(Client::with_config(config::get_config())));
 
     let (parser, sender_to_terminal) = terminal_utils::new(&terminal, terminal_context.clone());
     let events = EventHandler::new(250);
@@ -31,12 +34,13 @@ async fn main() -> AppResult<()> {
         chat_messages,
         chat_sender,
         chat_receiver,
+        client,
     );
 
     // Start the main loop.
     while app.running {
         // Render the user interface.
-        tui.draw(&mut app, parser.clone())?;
+        tui.draw(&mut app, parser.clone()).await?;
         // Handle events.
         match tui.events.next().await? {
             Event::Tick => app.tick(),
@@ -50,17 +54,3 @@ async fn main() -> AppResult<()> {
     tui.exit()?;
     Ok(())
 }
-
-// async fn setup_chat_channel(chat_messages: Arc<Mutex<Vec<String>>>) -> Sender<String> {
-// let (chat_sender, mut chat_receiver) = channel::<String>(32);
-
-//     tokio::spawn(async move {
-//         chat_receiver.try_recv().ok();
-//         while let Some(message) = chat_receiver.recv().await {
-//             chat_messages[l]
-//             println!("Received message: {}", message);
-//         }
-//     });
-
-//     chat_sender
-// }

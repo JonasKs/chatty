@@ -1,10 +1,11 @@
-use std::{
-    error,
-    sync::{Arc, Mutex},
-};
+use std::{error, sync::Arc};
 
+use async_openai::{config::AzureConfig, Client};
 use bytes::Bytes;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{
+    mpsc::{Receiver, Sender},
+    Mutex,
+};
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -18,6 +19,7 @@ pub struct App {
     pub chat_messages: Arc<Mutex<Vec<String>>>,
     pub chat_sender: Sender<String>,
     pub chat_receiver: Receiver<String>,
+    pub client: Arc<Mutex<Client<AzureConfig>>>,
 }
 
 impl App {
@@ -28,6 +30,7 @@ impl App {
         chat_messages: Arc<Mutex<Vec<String>>>,
         chat_sender: Sender<String>,
         chat_receiver: Receiver<String>,
+        client: Arc<Mutex<Client<AzureConfig>>>,
     ) -> Self {
         Self {
             running: true,
@@ -36,6 +39,7 @@ impl App {
             chat_messages,
             chat_sender,
             chat_receiver,
+            client,
         }
     }
 
