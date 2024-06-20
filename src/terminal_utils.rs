@@ -5,11 +5,12 @@ use std::{
     io::{BufWriter, Write},
     sync::Arc,
 };
+use tokio::sync::mpsc::{self, Sender, UnboundedReceiver, UnboundedSender};
 use tokio::sync::{Mutex, RwLock};
 
 use bytes::Bytes;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
-use tokio::{sync::mpsc::channel, sync::mpsc::Sender, task};
+use tokio::task;
 
 pub fn new(
     terminal: &Terminal<CrosstermBackend<Stderr>>,
@@ -68,17 +69,17 @@ pub fn new(
         });
     }
 
-    let (sender_to_terminal, mut receiver) = channel::<Bytes>(32);
+    let (terminal_sender, mut terminal_receiver) = mpsc::channel::<Bytes>(32);
     let mut writer = BufWriter::new(pair.master.take_writer().unwrap());
 
     // Drop writer on purpose
     tokio::spawn(async move {
-        while let Some(bytes) = receiver.recv().await {
+        while let Some(bytes) = terminal_receiver.recv().await {
             writer.write_all(&bytes).unwrap();
             writer.flush().unwrap();
         }
         drop(pair.master);
     });
 
-    (parser, sender_to_terminal)
+    (parser, terminal_sender)
 }

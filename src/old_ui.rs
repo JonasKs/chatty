@@ -10,7 +10,7 @@ use vt100::Screen;
 use crate::app::App;
 
 /// Renders the user interface widgets.
-pub async fn render(app: &mut App, frame: &mut Frame, screen: &Screen) {
+pub fn render(app: &mut App, frame: &mut Frame, screen: &Screen) {
     if let Some(message) = app.chat_receiver.try_recv().ok() {
         app.chat_messages.lock().await.push(message);
     }
