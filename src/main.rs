@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
@@ -19,7 +18,7 @@ async fn main() {
 
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout())).unwrap();
     let terminal_context = Arc::new(Mutex::new(String::new()));
-    let mut app_state = AppState::new(terminal_context.clone());
+    let app_state = AppState::new(terminal_context.clone());
     let mut event_service = EventService::new(event_receiver);
     let (parser, terminal_sender) = terminal_utils::new(&terminal, terminal_context.clone());
     let mut ui_service = UiService::new(

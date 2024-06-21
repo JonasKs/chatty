@@ -1,11 +1,11 @@
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use std::io::{Stderr, Stdout};
+use std::io::Stdout;
 use std::{
     io::{BufWriter, Write},
     sync::Arc,
 };
-use tokio::sync::mpsc::{self, Sender, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{self, Sender};
 use tokio::sync::{Mutex, RwLock};
 
 use bytes::Bytes;

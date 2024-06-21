@@ -17,7 +17,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::{
-    io::{self, Stderr, Stdout},
+    io::{self, Stdout},
     panic,
     sync::Arc,
 };

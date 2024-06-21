@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-enum Mode {
+pub enum Mode {
     Terminal,
     Chat,
 }
