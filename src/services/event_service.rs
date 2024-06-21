@@ -49,11 +49,16 @@ impl EventService {
             CrosstermEvent::Key(key) => {
                 if key.kind == crossterm::event::KeyEventKind::Press {
                     match key.code {
-                        KeyCode::Tab => Some(Event::ChangeMode),
                         KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             Some(Event::Quit)
                         }
-                        _ => Some(Event::Key(key)),
+                        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            Some(Event::ChangeMode)
+                        }
+                        _ => {
+                            // println!("{:?}", key);
+                            Some(Event::Key(key))
+                        }
                     }
                 } else {
                     None

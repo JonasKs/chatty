@@ -13,6 +13,7 @@ pub struct AppState {
     pub tick: i64,
     pub ai_response: String,
     pub terminal_context: Arc<Mutex<String>>,
+    pub user_chat_to_send_to_gpt: String,
 }
 
 impl AppState {
@@ -23,6 +24,7 @@ impl AppState {
             terminal_context,
             ai_response: "".to_string(),
             tick: 0,
+            user_chat_to_send_to_gpt: "".to_string(),
         }
     }
 
