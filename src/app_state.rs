@@ -14,6 +14,7 @@ pub struct AppState {
     pub ai_response: String,
     pub terminal_context: Arc<Mutex<String>>,
     pub user_chat_to_send_to_gpt: String,
+    pub terminal_scroll: usize, // Added to track the scroll position
 }
 
 impl AppState {
@@ -25,6 +26,7 @@ impl AppState {
             ai_response: "".to_string(),
             tick: 0,
             user_chat_to_send_to_gpt: "".to_string(),
+            terminal_scroll: 0, // Initialized to 0
         }
     }
 
