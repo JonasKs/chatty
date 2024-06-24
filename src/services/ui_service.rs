@@ -61,7 +61,8 @@ impl UiService {
             Mode::Terminal => Style::default().cyan(),
             Mode::Chat => Style::default(),
         };
-        let pseudo_terminal = PseudoTerminal::new(screen);
+        let pseudo_terminal = PseudoTerminal::new(screen)
+            .scroll((self.app_state.terminal_scroll, 0)); // Added scroll functionality based on AppState::terminal_scroll
         frame.render_widget(
             pseudo_terminal.block(
                 Block::default()
@@ -139,6 +140,14 @@ impl UiService {
                             "tell me a two paragraph story".to_string(),
                         ))
                         .unwrap(),
+                    KeyCode::Up => {
+                        if self.app_state.terminal_scroll > 0 {
+                            self.app_state.terminal_scroll -= 1; // Handle scroll up
+                        }
+                    }
+                    KeyCode::Down => {
+                        self.app_state.terminal_scroll += 1; // Handle scroll down
+                    }
                     _ => {}
                 },
                 _ => {}
