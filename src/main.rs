@@ -8,11 +8,15 @@ use terminal_ai_ops::services::event_service::EventService;
 use terminal_ai_ops::services::ui_service::UiService;
 use terminal_ai_ops::services::{chat_service::Action, event_service::Event};
 use terminal_ai_ops::terminal_utils;
+use terminal_ai_ops::tracing::init_tracing;
 use tokio::sync::mpsc::{self};
 use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
+    // drop after main is over
+    let _guard = init_tracing();
+
     let (action_sender, mut action_receiver) = mpsc::unbounded_channel::<Action>();
     let (event_sender, event_receiver) = mpsc::unbounded_channel::<Event>();
 
