@@ -7,6 +7,16 @@ pub enum Mode {
     Chat,
 }
 
+pub enum MessageSender {
+    Assistant,
+    User,
+}
+
+pub struct Message {
+    pub sender: MessageSender,
+    pub message: String,
+}
+
 pub struct AppState {
     pub running: bool,
     pub current_mode: Mode,
@@ -14,17 +24,21 @@ pub struct AppState {
     pub ai_response: String,
     pub terminal_context: Arc<Mutex<String>>,
     pub user_chat_to_send_to_gpt: String,
+    pub chat_history: Vec<Message>,
+    pub disable_chat: bool,
 }
 
 impl AppState {
     pub fn new(terminal_context: Arc<Mutex<String>>) -> Self {
         Self {
             running: true,
-            current_mode: Mode::Terminal,
+            current_mode: Mode::Chat,
             terminal_context,
-            ai_response: "".to_string(),
+            ai_response: String::new(),
             tick: 0,
-            user_chat_to_send_to_gpt: "".to_string(),
+            user_chat_to_send_to_gpt: String::new(),
+            chat_history: Vec::new(),
+            disable_chat: false,
         }
     }
 

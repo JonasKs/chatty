@@ -55,8 +55,14 @@ impl ChatService {
                                         event_sender
                                             .send(Event::AIStreamResponse(content.into()))
                                             .unwrap();
-                                        // chat_messages.push(content.into())
                                     }
+
+                                    // send event to the UI to indicate if the AI is reasoning or not
+                                    event_sender
+                                        .send(Event::AIReasoning(
+                                            chat_choice.finish_reason.is_some(),
+                                        ))
+                                        .unwrap();
                                 }
                             }
                             Err(err) => {
