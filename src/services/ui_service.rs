@@ -1,4 +1,4 @@
-use crate::app_state::{self, AppState, Mode};
+use crate::app_state::{self, AppState, Message, Mode};
 
 use super::{
     chat_service::Action,
@@ -56,17 +56,31 @@ impl UiService {
             .alignment(Alignment::Center);
         frame.render_widget(footer, root_box[1]);
 
-        // Terminal code. We don't need to do much here, everything is handled by the widget pretty much
-        let terminal_border_style = match self.app_state.current_mode {
+        let terminal_style = match self.app_state.current_mode {
             Mode::Terminal => Style::default().cyan(),
             Mode::Chat => Style::default(),
         };
+
+        let chat_box_style = match self.app_state.current_mode {
+            Mode::Terminal => Style::default(),
+            Mode::Chat => Style::default().cyan(),
+        };
+
+        let chat_input_style = match self.app_state.current_mode {
+            Mode::Terminal => Style::default(),
+            Mode::Chat => match self.app_state.disable_chat {
+                true => Style::default().red(),
+                false => Style::default().cyan(),
+            },
+        };
+
+        // Terminal code. We don't need to do much here, everything is handled by the widget pretty much
         let pseudo_terminal = PseudoTerminal::new(screen);
         frame.render_widget(
             pseudo_terminal.block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .border_style(terminal_border_style)
+                    .border_style(terminal_style)
                     .title("Terminal"),
             ),
             outer_layout[0],
@@ -77,33 +91,49 @@ impl UiService {
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Fill(30), // Chat history
-                Constraint::Min(3),   // Chat input
+                Constraint::Min(5),   // Chat input
             ])
             .split(outer_layout[1]);
-        let chat_border_style = match self.app_state.current_mode {
-            Mode::Terminal => Style::default(),
-            Mode::Chat => Style::default().cyan(),
-        };
-        let chat = Paragraph::new(self.app_state.ai_response.to_string())
-            .wrap(Wrap { trim: false })
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(chat_border_style)
-                    .title("GPT"),
-            )
-            .style(Style::default().add_modifier(Modifier::BOLD))
-            .alignment(Alignment::Center);
+
+        let chat = Paragraph::new(
+            self.app_state
+                .chat_history
+                .iter()
+                .map(|x| x.message.clone())
+                .collect::<Vec<String>>()
+                .join("\n\n")
+                + "\n\n"
+                + &self.app_state.ai_response.to_string(),
+        )
+        .wrap(Wrap { trim: false })
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(chat_box_style)
+                .title("GPT"),
+        )
+        .style(Style::default().add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center);
         frame.render_widget(chat, chat_layout[0]);
         frame.render_widget(
-            Paragraph::new(self.app_state.user_chat_to_send_to_gpt.to_string()).block(
+            Paragraph::new(self.app_state.user_chat_to_send_to_gpt.clone()).block(
                 Block::new()
                     .borders(Borders::ALL)
-                    .border_style(chat_border_style)
+                    .border_style(chat_input_style)
                     .title("Chat"),
             ),
             chat_layout[1],
         );
+    }
+
+    pub fn chat_border_style(&self, disabled: bool) -> Style {
+        match self.app_state.current_mode {
+            Mode::Terminal => Style::default(),
+            Mode::Chat => match disabled {
+                true => Style::default().red(),
+                false => Style::default().cyan(),
+            },
+        }
     }
 
     pub async fn start(
@@ -121,6 +151,20 @@ impl UiService {
                 Event::Tick => self.app_state.tick(),
                 Event::Quit => self.app_state.quit(),
                 Event::ChangeMode => self.app_state.change_mode(),
+                Event::AIReasoning(is_finished_reasoning) => {
+                    match is_finished_reasoning {
+                        true => {
+                            self.app_state.chat_history.push(Message {
+                                sender: app_state::MessageSender::Assistant,
+                                message: self.app_state.ai_response.clone(),
+                            });
+                            self.app_state.ai_response.clear();
+                            self.app_state.disable_chat = false;
+                        }
+                        false => self.app_state.disable_chat = true,
+                    };
+                }
+
                 Event::Key(key) => match key.code {
                     KeyCode::Char(char) => match self.app_state.current_mode {
                         Mode::Chat => self
@@ -133,15 +177,43 @@ impl UiService {
                             .await
                             .unwrap(),
                     },
-                    KeyCode::Enter => self
-                        .action_sender
-                        .send(Action::AiRequest(
-                            "tell me a two paragraph story".to_string(),
-                        ))
-                        .unwrap(),
+                    KeyCode::Enter => match self.app_state.current_mode {
+                        Mode::Terminal => {
+                            self.terminal_sender
+                                .send(Bytes::from(vec![13u8]))
+                                .await
+                                .unwrap();
+                        }
+                        Mode::Chat => {
+                            self.action_sender
+                                .send(Action::AiRequest(
+                                    self.app_state.user_chat_to_send_to_gpt.to_string(),
+                                ))
+                                .unwrap();
+
+                            // save chat to history
+                            self.app_state.chat_history.push(Message {
+                                sender: app_state::MessageSender::User,
+                                message: self.app_state.user_chat_to_send_to_gpt.clone(),
+                            });
+
+                            self.app_state.user_chat_to_send_to_gpt.clear();
+                            self.app_state.disable_chat = true;
+                        }
+                    },
+                    KeyCode::Backspace => match self.app_state.current_mode {
+                        Mode::Chat => {
+                            self.app_state.user_chat_to_send_to_gpt.pop();
+                        }
+                        Mode::Terminal => {
+                            self.terminal_sender
+                                .send(Bytes::from(vec![8u8]))
+                                .await
+                                .unwrap();
+                        }
+                    },
                     _ => {}
                 },
-                _ => {}
             }
         }
     }

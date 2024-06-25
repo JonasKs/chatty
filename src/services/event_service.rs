@@ -11,6 +11,7 @@ pub enum Event {
     ChangeMode,
     Quit,
     AIStreamResponse(String),
+    AIReasoning(bool),
 }
 
 pub struct EventService {
