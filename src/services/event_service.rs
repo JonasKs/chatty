@@ -51,13 +51,15 @@ impl EventService {
                 if key.kind == crossterm::event::KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            tracing::info!("Quitting app : {:?}", key);
                             Some(Event::Quit)
                         }
                         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            tracing::info!("Changing mode : {:?}", key);
                             Some(Event::ChangeMode)
                         }
                         _ => {
-                            // println!("{:?}", key);
+                            tracing::info!("key event {:?}", key);
                             Some(Event::Key(key))
                         }
                     }
