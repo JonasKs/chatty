@@ -1,4 +1,4 @@
-use crate::app_state::{self, AppState, Message, Mode};
+use crate::app_state::{self, AppState, Message, MessageSender, Mode};
 
 use super::{
     chat_service::Action,
@@ -12,7 +12,8 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
@@ -69,7 +70,7 @@ impl UiService {
         let chat_input_style = match self.app_state.current_mode {
             Mode::Terminal => Style::default(),
             Mode::Chat => match self.app_state.disable_chat {
-                true => Style::default().red(),
+                true => Style::default().gray(),
                 false => Style::default().cyan(),
             },
         };
@@ -91,49 +92,84 @@ impl UiService {
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Fill(30), // Chat history
-                Constraint::Min(5),   // Chat input
+                Constraint::Min(3),   // Chat input
             ])
             .split(outer_layout[1]);
 
-        let chat = Paragraph::new(
-            self.app_state
-                .chat_history
-                .iter()
-                .map(|x| x.message.clone())
-                .collect::<Vec<String>>()
-                .join("\n\n")
-                + "\n\n"
-                + &self.app_state.ai_response.to_string(),
-        )
-        .wrap(Wrap { trim: false })
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(chat_box_style)
-                .title("GPT"),
-        )
-        .style(Style::default().add_modifier(Modifier::BOLD))
-        .alignment(Alignment::Center);
-        frame.render_widget(chat, chat_layout[0]);
-        frame.render_widget(
-            Paragraph::new(self.app_state.user_chat_to_send_to_gpt.clone()).block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_style(chat_input_style)
-                    .title("Chat"),
-            ),
-            chat_layout[1],
-        );
-    }
+        let mut chat_vector = Vec::new();
 
-    pub fn chat_border_style(&self, disabled: bool) -> Style {
-        match self.app_state.current_mode {
-            Mode::Terminal => Style::default(),
-            Mode::Chat => match disabled {
-                true => Style::default().red(),
-                false => Style::default().cyan(),
-            },
+        for msg in &self.app_state.chat_history {
+            let line = match msg.sender {
+                MessageSender::Assistant => Line::from(format!("> {}", msg.message.clone()))
+                    .style(Style::default().fg(Color::Green))
+                    .alignment(Alignment::Left),
+                MessageSender::User => Line::from(format!("{} <", msg.message.clone()))
+                    .style(Style::default().fg(Color::Blue))
+                    .alignment(Alignment::Right),
+            };
+
+            chat_vector.push(line);
+            // Add an empty line after each message
+            chat_vector.push(Line::from(""));
+
         }
+        // finally at the very end of the chat we add the live response stream from the ai
+        if !self.app_state.ai_response.is_empty() {
+            chat_vector.push(Line::from(self.app_state.ai_response.clone()));
+        };
+
+        let chat = Paragraph::new(chat_vector)
+            .wrap(Wrap { trim: false })
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(chat_box_style)
+                    .title("GPT"),
+            )
+            .style(Style::default().add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Left);
+
+        frame.render_widget(chat, chat_layout[0]);
+
+        let chat_box_style = match self.app_state.disable_chat {
+            true => Style::default().gray(),
+            false => Style::default(),
+        };
+
+        let default_throbber = throbber_widgets_tui::Throbber::default()
+            .label("Loading...")
+            .style(ratatui::style::Style::default().fg(ratatui::style::Color::Gray));
+
+        let chatbox_widget = match self.app_state.disable_chat {
+            true => Paragraph::new(self.app_state.user_chat_to_send_to_gpt.clone())
+                .block(
+                    Block::new()
+                        .borders(Borders::ALL)
+                        .border_style(chat_input_style)
+                        .title(default_throbber)
+                        .style(chat_box_style),
+                )
+                .alignment(if self.app_state.disable_chat {
+                    Alignment::Center
+                } else {
+                    Alignment::Left
+                }),
+            false => Paragraph::new(self.app_state.user_chat_to_send_to_gpt.clone())
+                .block(
+                    Block::new()
+                        .borders(Borders::ALL)
+                        .border_style(chat_input_style)
+                        .title("GPT")
+                        .style(chat_box_style),
+                )
+                .alignment(if self.app_state.disable_chat {
+                    Alignment::Center
+                } else {
+                    Alignment::Left
+                }),
+        };
+
+        frame.render_widget(chatbox_widget, chat_layout[1]);
     }
 
     pub async fn start(
@@ -167,10 +203,13 @@ impl UiService {
 
                 Event::Key(key) => match key.code {
                     KeyCode::Char(char) => match self.app_state.current_mode {
-                        Mode::Chat => self
-                            .app_state
-                            .user_chat_to_send_to_gpt
-                            .push_str(&char.to_string()),
+                        Mode::Chat => {
+                            if !self.app_state.disable_chat {
+                                self.app_state
+                                    .user_chat_to_send_to_gpt
+                                    .push_str(&char.to_string())
+                            }
+                        }
                         Mode::Terminal => self
                             .terminal_sender
                             .send(Bytes::from(char.to_string().into_bytes()))
