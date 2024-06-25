@@ -8,3 +8,5 @@ pub mod config;
 
 /// Services
 pub mod services;
+
+pub mod tracing;
