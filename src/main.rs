@@ -32,7 +32,7 @@ async fn main() {
         terminal_sender.clone(),
     );
 
-    let chat_service = ChatService::new();
+    let mut chat_service = ChatService::new();
     tokio::spawn(async move { chat_service.start(event_sender, &mut action_receiver).await });
     ui_service
         .start(&mut terminal, &mut event_service, parser)

@@ -185,10 +185,19 @@ impl UiService {
                                 .unwrap();
                         }
                         Mode::Chat => {
+                            if self.app_state.user_chat_to_send_to_gpt == "/clear" {
+                                self.app_state.user_chat_to_send_to_gpt.clear();
+                                self.app_state.chat_history.clear();
+                                self.action_sender.send(Action::Clear).unwrap();
+                                self.app_state.terminal_context.lock().await.clear();
+                                continue;
+                            }
                             self.action_sender
-                                .send(Action::AiRequest(
-                                    self.app_state.user_chat_to_send_to_gpt.to_string(),
-                                ))
+                                .send(Action::AiRequest(format!(
+                                    "Given this terminal output: \n\n ```\n{}\n```\n\n{}",
+                                    self.app_state.terminal_context.lock().await.clone(),
+                                    self.app_state.user_chat_to_send_to_gpt,
+                                )))
                                 .unwrap();
 
                             // save chat to history
