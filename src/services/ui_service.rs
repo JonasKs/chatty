@@ -26,13 +26,20 @@ use tokio::sync::{
     mpsc::{Sender, UnboundedSender},
     RwLock,
 };
+use tracing::info;
 use tui_term::widget::PseudoTerminal;
 use vt100::Screen;
+
+pub struct Size {
+    columns: u16,
+    rows: u16,
+}
 
 pub struct UiService {
     action_sender: UnboundedSender<Action>,
     app_state: AppState,
     terminal_sender: Sender<Bytes>,
+    size: Size,
 }
 
 impl UiService {
@@ -96,40 +103,99 @@ impl UiService {
             ])
             .split(outer_layout[1]);
 
-        let mut chat_vector = Vec::new();
+        let chat_layout_two = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Min(1), Constraint::Fill(2)])
+            .split(chat_layout[0]);
 
-        for msg in &self.app_state.chat_history {
-            let line = match msg.sender {
-                MessageSender::Assistant => Line::from(format!("> {}", msg.message.clone()))
-                    .style(Style::default().fg(Color::Green))
-                    .alignment(Alignment::Left),
-                MessageSender::User => Line::from(format!("{} <", msg.message.clone()))
+        let chat_block = Block::default()
+            .title("GPT")
+            .borders(Borders::ALL)
+            .border_style(chat_box_style);
+
+        if let Some(last_user_message) = self
+            .app_state
+            .chat_history
+            .iter()
+            .rev()
+            .find(|x| x.sender == MessageSender::User)
+        {
+            info!("{:?}", last_user_message.message);
+            frame.render_widget(
+                Paragraph::new(last_user_message.message.to_string())
                     .style(Style::default().fg(Color::Blue))
-                    .alignment(Alignment::Right),
-            };
-
-            chat_vector.push(line);
-            // Add an empty line after each message
-            chat_vector.push(Line::from(""));
-
+                    .alignment(Alignment::Right)
+                    .block(chat_block.clone()),
+                chat_layout_two[0],
+            );
+        } else {
+            frame.render_widget(chat_block.clone().title("User message"), chat_layout_two[0])
         }
+        //
+        // let paragraphs = match &self.app_state.chat_history.as_slice() {
+        //     [.., second_last, last] => {
+        //         let paragraphs = vec![];
+        //         if second_last.sender == MessageSender::User {}
+        //         let second_last_paragraph = match second_last.sender {
+        //             MessageSender::User => Paragraph::new(format!("{} <", second_last.message))
+        //                 .style(Style::default().fg(Color::Blue))
+        //                 .alignment(Alignment::Right),
+        //             MessageSender::Assistant => {}
+        //         };
+        //         let last_paragraph = match last.sender {
+        //             MessageSender::User => Paragraph::new(format!("{} <", last.message))
+        //                 .style(Style::default().fg(Color::Blue))
+        //                 .alignment(Alignment::Right),
+        //             MessageSender::Assistant => {}
+        //         };
+        //         vec![second_last_paragraph, last_paragraph]
+        //     }
+        // };
+        //
         // finally at the very end of the chat we add the live response stream from the ai
         if !self.app_state.ai_response.is_empty() {
-            chat_vector.push(Line::from(self.app_state.ai_response.clone()));
-        };
-
-        let chat = Paragraph::new(chat_vector)
-            .wrap(Wrap { trim: false })
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(chat_box_style)
-                    .title("GPT"),
+            frame.render_widget(
+                Paragraph::new(self.app_state.ai_response.clone())
+                    .green()
+                    .wrap(Wrap { trim: false })
+                    .block(chat_block.clone()),
+                chat_layout_two[1],
             )
-            .style(Style::default().add_modifier(Modifier::BOLD))
-            .alignment(Alignment::Left);
+        } else if let Some(last_ai_message) = self
+            .app_state
+            .chat_history
+            .iter()
+            .rev()
+            .find(|x| x.sender == MessageSender::Assistant)
+        {
+            info!("{:?}", last_ai_message.message);
+            frame.render_widget(
+                Paragraph::new(last_ai_message.message.to_string())
+                    .style(Style::default().fg(Color::Blue))
+                    .wrap(Wrap { trim: false })
+                    .alignment(Alignment::Left)
+                    .block(chat_block.clone())
+                    .scroll((self.app_state.scroll, 0)),
+                chat_layout_two[1],
+            );
+        } else {
+            frame.render_widget(chat_block.clone(), chat_layout_two[1])
+        }
 
-        frame.render_widget(chat, chat_layout[0]);
+        // let chat = Paragraph::new(chat_vector)
+        //     .wrap(Wrap { trim: false })
+        //     .block(
+        //         Block::default()
+        //             .borders(Borders::ALL)
+        //             .border_style(chat_box_style)
+        //             .title("GPT"),
+        //     )
+        //     .style(Style::default().add_modifier(Modifier::BOLD))
+        //     .alignment(Alignment::Left);
+
+        // frame.render_widget(chat, chat_layout[0]);
+
+        // frame.render_widget(chat_block, chat_layout[0]); // Render each paragraph in the chat vector inside the chat layout
 
         let chat_box_style = match self.app_state.disable_chat {
             true => Style::default().gray(),
@@ -187,6 +253,11 @@ impl UiService {
                 Event::Tick => self.app_state.tick(),
                 Event::Quit => self.app_state.quit(),
                 Event::ChangeMode => self.app_state.change_mode(),
+                Event::Resize(columns, rows) => parser.write().await.set_size(rows - 5, columns),
+                Event::ScrollUp => self.app_state.scroll = self.app_state.scroll.saturating_add(1),
+                Event::ScrollDown => {
+                    self.app_state.scroll = self.app_state.scroll.saturating_sub(1)
+                }
                 Event::AIReasoning(is_finished_reasoning) => {
                     match is_finished_reasoning {
                         true => {
@@ -212,7 +283,10 @@ impl UiService {
                         }
                         Mode::Terminal => self
                             .terminal_sender
-                            .send(Bytes::from(char.to_string().into_bytes()))
+                            // .send(Bytes::from(char.to_string().into_bytes()))
+                            // TODO: remove, this just prints height for debugging
+                            // it's about 8px for UI
+                            .send(Bytes::from(screen.size().0.to_string().into_bytes()))
                             .await
                             .unwrap(),
                     },
@@ -287,11 +361,16 @@ impl UiService {
 
         terminal.hide_cursor().unwrap();
         terminal.clear().unwrap();
+        let term_size = terminal.size().unwrap();
 
         Self {
             action_sender,
             app_state,
             terminal_sender,
+            size: Size {
+                columns: term_size.width,
+                rows: term_size.height,
+            },
         }
     }
 

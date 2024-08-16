@@ -12,6 +12,10 @@ pub enum Event {
     Quit,
     AIStreamResponse(String),
     AIReasoning(bool),
+    // columns, rows
+    Resize(u16, u16),
+    ScrollUp,
+    ScrollDown,
 }
 
 pub struct EventService {
@@ -58,6 +62,8 @@ impl EventService {
                             tracing::info!("Changing mode : {:?}", key);
                             Some(Event::ChangeMode)
                         }
+                        KeyCode::Char('u') => Some(Event::ScrollUp),
+                        KeyCode::Char('d') => Some(Event::ScrollDown),
                         _ => {
                             tracing::info!("key event {:?}", key);
                             Some(Event::Key(key))
@@ -67,6 +73,7 @@ impl EventService {
                     None
                 }
             }
+            CrosstermEvent::Resize(columns, rows) => Some(Event::Resize(columns, rows)),
             _ => None,
         }
     }
