@@ -6,7 +6,7 @@ pub enum Mode {
     Terminal,
     Chat,
 }
-
+#[derive(PartialEq)]
 pub enum MessageSender {
     Assistant,
     User,
@@ -26,6 +26,7 @@ pub struct AppState {
     pub user_chat_to_send_to_gpt: String,
     pub chat_history: Vec<Message>,
     pub disable_chat: bool,
+    pub scroll: u16,
 }
 
 impl AppState {
@@ -39,6 +40,7 @@ impl AppState {
             user_chat_to_send_to_gpt: String::new(),
             chat_history: Vec::new(),
             disable_chat: false,
+            scroll: 0,
         }
     }
 

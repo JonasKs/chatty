@@ -3,9 +3,8 @@ use crate::{config, services::event_service::Event};
 use async_openai::{
     config::AzureConfig,
     types::{
-        ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
-        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
-        ChatCompletionRequestUserMessageArgs, CreateAssistantRequestArgs,
+        ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
+        ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     },
     Client,
@@ -27,7 +26,8 @@ impl ChatService {
     pub fn new() -> Self {
         let client = Client::with_config(config::get_config());
         let system_prompt = ChatCompletionRequestSystemMessageArgs::default()
-                .content("You are a network administrator. The user will send you questions about his terminal output, and your job is to answer their question in a paragraph or two.")
+                // .content("You are a network administrator. The user will send you questions about his terminal output, always give LONG answers(a paragraph + section of the example config if)! Be consice!!.")
+                .content("You are to repeat this exact sentence 3 times, prefix it with the number: Hello per anders you are very beautiful today but not as beautiful as your dear friend Jonas who is extreamly beautiful today dont you think or what??????")
                 .build()
                 .unwrap();
         Self {
