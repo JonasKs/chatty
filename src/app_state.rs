@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use ratatui::{
+    style::{Color, Stylize},
+    text::{Line, Text},
+};
 use tokio::sync::Mutex;
 
 pub enum Mode {
@@ -17,11 +21,29 @@ pub struct Message {
     pub message: String,
 }
 
+impl Message {
+    pub fn style(&self) -> Vec<Line> {
+        let mut lines = match self.sender {
+            MessageSender::User => self
+                .message
+                .lines()
+                .map(|m| Line::from(m).right_aligned())
+                .collect(),
+            MessageSender::Assistant => self
+                .message
+                .lines()
+                .map(|m| Line::from(m).yellow().left_aligned())
+                .collect::<Vec<Line>>(),
+        };
+        lines.push(Line::from("").centered());
+        lines
+    }
+}
+
 pub struct AppState {
     pub running: bool,
     pub current_mode: Mode,
     pub tick: i64,
-    pub ai_response: String,
     pub terminal_context: Arc<Mutex<String>>,
     pub user_chat_to_send_to_gpt: String,
     pub chat_history: Vec<Message>,
@@ -35,7 +57,6 @@ impl AppState {
             running: true,
             current_mode: Mode::Chat,
             terminal_context,
-            ai_response: String::new(),
             tick: 0,
             user_chat_to_send_to_gpt: String::new(),
             chat_history: Vec::new(),
