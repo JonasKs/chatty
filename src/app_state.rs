@@ -1,9 +1,15 @@
-use std::sync::Arc;
+use std::{
+    borrow::{Borrow, BorrowMut},
+    sync::Arc,
+};
 
 use ratatui::{
-    style::{Color, Stylize},
+    layout::Alignment,
+    style::{Color, Style, Stylize},
     text::{Line, Text},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
+use textwrap::Options;
 use tokio::sync::Mutex;
 
 pub enum Mode {
@@ -37,6 +43,38 @@ impl Message {
         };
         lines.push(Line::from("").centered());
         lines
+    }
+
+    pub fn paragraph(&self, width: u16) -> (Paragraph, usize) {
+        let mut paragraph = Paragraph::new(format!("{}\n\n", self.message.clone()));
+        match self.sender {
+            MessageSender::User => {
+                paragraph = paragraph.right_aligned().wrap(Wrap { trim: false }).block(
+                    Block::default()
+                        .title_top(Line::from("💻 User 💻").fg(Color::Cyan).right_aligned())
+                        .borders(Borders::TOP)
+                        .border_style(Style::default().cyan()),
+                )
+            }
+            MessageSender::Assistant => {
+                paragraph = paragraph.left_aligned().wrap(Wrap { trim: false }).block(
+                    Block::default()
+                        .title_top(Line::from("🤖 GPT 🤖").fg(Color::Cyan))
+                        .borders(Borders::TOP)
+                        .border_style(Style::default().cyan()),
+                )
+            }
+        }
+        let paragraph_height = paragraph.line_count(width);
+        (paragraph, paragraph_height)
+    }
+
+    pub fn text_wrap(&self, width: u16) -> (Text, usize) {
+        let lines = textwrap::wrap(&self.message, width as usize);
+        let lines = lines.into_iter().map(Line::raw);
+        let len = lines.len();
+        let text = Text::from_iter(lines);
+        (text, len)
     }
 }
 

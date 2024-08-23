@@ -3,6 +3,7 @@ use crate::app_state::{self, AppState, Message, MessageSender, Mode};
 use super::{
     chat_service::Action,
     event_service::{Event, EventService},
+    widget::Chat,
 };
 use bytes::Bytes;
 use crossterm::{
@@ -43,7 +44,7 @@ impl UiService {
         let root_box = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Fill(1), Constraint::Max(1)])
-            .split(frame.size());
+            .split(frame.area());
         // Outer layout, which is inside the root_layout, on top of the footer. This is essentially the area we use
         let outer_layout = Layout::default()
             .direction(Direction::Horizontal)
@@ -102,20 +103,34 @@ impl UiService {
             .borders(Borders::ALL)
             .border_style(chat_box_style);
 
-        let styled_messages: Vec<Line> = self
-            .app_state
-            .chat_history
-            .iter()
-            .flat_map(|message| message.style().into_iter())
-            .collect();
+        // calculate height of all paragraphs
+        // calculate height of block
+        // calculate what to show
+        // so..
+        // if display is 10 lines
+        //    8 lines paragraph
+        //    3 lines paragraph
+        //    3 lines paragraph
+        // we should only render the two latest paragraphs + 4 of the first lines of the first message
+        let mut x = Chat::new(&self.app_state.chat_history)
+            .block(chat_block)
+            .scroll(self.app_state.scroll);
+        frame.render_widget(&mut x, chat_layout[0]);
 
-        frame.render_widget(
-            Paragraph::new(styled_messages)
-                .wrap(Wrap { trim: true })
-                .block(chat_block)
-                .scroll((self.app_state.scroll, 0)),
-            chat_layout[0],
-        );
+        // let styled_messages: Vec<Line> = self
+        //     .app_state
+        //     .chat_history
+        //     .iter()
+        //     .flat_map(|message| message.style().into_iter())
+        //     .collect();
+        //
+        // frame.render_widget(
+        //     Paragraph::new(styled_messages)
+        //         .wrap(Wrap { trim: true })
+        //         .block(chat_block)
+        //         .scroll((self.app_state.scroll, 0)),
+        //     chat_layout[0],
+        // );
 
         // Chat box where we type shit
         let chat_box_style = match self.app_state.disable_chat {
@@ -176,7 +191,7 @@ impl UiService {
                             MessageSender::User => {
                                 self.app_state.chat_history.push(Message {
                                     sender: app_state::MessageSender::Assistant,
-                                    message: format!("🤖 > {}", stream),
+                                    message: stream,
                                 });
                             }
                             MessageSender::Assistant => {
@@ -215,10 +230,7 @@ impl UiService {
                         }
                         Mode::Terminal => self
                             .terminal_sender
-                            // .send(Bytes::from(char.to_string().into_bytes()))
-                            // TODO: remove, this just prints height for debugging
-                            // it's about 8px for UI
-                            .send(Bytes::from(screen.size().0.to_string().into_bytes()))
+                            .send(Bytes::from(char.to_string().into_bytes()))
                             .await
                             .unwrap(),
                     },
@@ -248,10 +260,7 @@ impl UiService {
                             // save chat to history
                             self.app_state.chat_history.push(Message {
                                 sender: app_state::MessageSender::User,
-                                message: format!(
-                                    "{} <",
-                                    self.app_state.user_chat_to_send_to_gpt.clone()
-                                ),
+                                message: self.app_state.user_chat_to_send_to_gpt.clone(),
                             });
 
                             self.app_state.user_chat_to_send_to_gpt.clear();

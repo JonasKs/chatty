@@ -6,3 +6,6 @@ pub mod event_service;
 
 /// The service responsible for rendering the UI and managing the AppState.
 pub mod ui_service;
+
+/// Widgets contains my chat widget
+pub mod widget;
