@@ -1,6 +1,8 @@
 use std::io;
 
-use crossterm::event::{Event as CrosstermEvent, EventStream, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{
+    Event as CrosstermEvent, EventStream, KeyCode, KeyEvent, KeyModifiers, MouseEventKind,
+};
 use futures::StreamExt;
 use tokio::{sync::mpsc, time};
 
@@ -51,6 +53,15 @@ impl EventService {
 
     fn handle_crossterm_event(&self, event: CrosstermEvent) -> Option<Event> {
         match event {
+            CrosstermEvent::Mouse(mouse) => {
+                if mouse.kind == crossterm::event::MouseEventKind::ScrollUp {
+                    Some(Event::ScrollUp)
+                } else if mouse.kind == crossterm::event::MouseEventKind::ScrollDown {
+                    Some(Event::ScrollDown)
+                } else {
+                    None
+                }
+            }
             CrosstermEvent::Key(key) => {
                 if key.kind == crossterm::event::KeyEventKind::Press {
                     match key.code {
@@ -62,8 +73,14 @@ impl EventService {
                             tracing::info!("Changing mode : {:?}", key);
                             Some(Event::ChangeMode)
                         }
-                        KeyCode::Char('u') => Some(Event::ScrollUp),
-                        KeyCode::Char('d') => Some(Event::ScrollDown),
+                        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            tracing::info!("Scroll up : {:?}", key);
+                            Some(Event::ScrollUp)
+                        }
+                        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            tracing::info!("Scroll down : {:?}", key);
+                            Some(Event::ScrollDown)
+                        }
                         _ => {
                             tracing::info!("key event {:?}", key);
                             Some(Event::Key(key))

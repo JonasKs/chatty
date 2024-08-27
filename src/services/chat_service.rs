@@ -16,6 +16,8 @@ use tracing::info;
 pub enum Action {
     AiRequest(String),
     Clear,
+    NetworkEngineer,
+    LinuxEngineer,
 }
 
 pub struct ChatService {
@@ -27,8 +29,7 @@ impl ChatService {
     pub fn new() -> Self {
         let client = Client::with_config(config::get_config());
         let system_prompt = ChatCompletionRequestSystemMessageArgs::default()
-                // .content("You are a network administrator. The user will send you questions about his terminal output, always give LONG answers(a paragraph + section of the example config if)! Be consice!!.")
-                .content("You are to repeat this exact sentence 3 times, with two line breaks, prefix it with the number: Hello per anders you are very beautiful today but not as beautiful as your dear friend Jonas who is extreamly beautiful today dont you think or what??????")
+                .content("You are a general purpose programmer. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!")
                 .build()
                 .unwrap();
         Self {
@@ -47,6 +48,39 @@ impl ChatService {
         // Inspiration: https://github.com/dustinblackman/oatmeal/blob/a6148b2474778698f7b261aa549dcbda439e2060/src/domain/services/actions.rs#L239
         while let Some(action) = action_receiver.recv().await {
             match action {
+                Action::NetworkEngineer => {
+                    // Clear all messages except first, which is the system message
+                    self.previous_messages.drain(1..);
+                    tracing::info!("Changing prompt to network engineer");
+                    if let Some(first) = self.previous_messages.first_mut() {
+                        *first = ChatCompletionRequestSystemMessageArgs::default()
+                            .content("You are a Cisco Network Engineer. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!")
+                            .build()
+                            .unwrap().into();
+                    }
+                    tracing::info!(
+                        "First message: {:?}",
+                        self.previous_messages.first().unwrap()
+                    );
+                    event_sender
+                        .send(Event::AIStreamResponse("Hi! I'm your personal Network assistant. I'm can see your terminal, so feel free to ask questions!".into()))
+                        .unwrap();
+                }
+                Action::LinuxEngineer => {
+                    // Clear all messages except first, which is the system message
+                    self.previous_messages.drain(1..);
+                    tracing::info!("Changing prompt to linux engineer");
+                    if let Some(first) = self.previous_messages.first_mut() {
+                        *first = ChatCompletionRequestSystemMessageArgs::default()
+                            .content("You are a Linux Security Expert. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!")
+                            .build()
+                            .unwrap().into();
+                    }
+                    tracing::info!("First message: {:?}", self.previous_messages);
+                    event_sender
+                        .send(Event::AIStreamResponse("Hi! I'm your personal Linux assistant. I'm can see your terminal, so feel free to ask questions!".into()))
+                        .unwrap();
+                }
                 Action::Clear => {
                     // Clear all messages except first, which is the system message
                     self.previous_messages.drain(1..);

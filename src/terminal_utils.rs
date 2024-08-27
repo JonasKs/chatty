@@ -37,9 +37,10 @@ pub fn new(
     });
 
     let mut reader = pair.master.try_clone_reader().unwrap();
+    let adjusted_width = (terminal.size().unwrap().width as f32 * 0.57).floor() as u16;
     let parser = Arc::new(RwLock::new(vt100::Parser::new(
         terminal.size().unwrap().height - 5,
-        terminal.size().unwrap().width,
+        adjusted_width,
         0,
     )));
     {
