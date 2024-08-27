@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use ratatui::{
-    style::{Color, Stylize},
-    text::{Line, Text},
-};
+use ratatui::prelude::Stylize;
+use ratatui::text::{Line, Span};
 use tokio::sync::Mutex;
 
 pub enum Mode {
@@ -22,19 +20,53 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn style(&self) -> Vec<Line> {
-        let mut lines = match self.sender {
-            MessageSender::User => self
-                .message
-                .lines()
-                .map(|m| Line::from(m).right_aligned())
-                .collect(),
-            MessageSender::Assistant => self
-                .message
-                .lines()
-                .map(|m| Line::from(m).yellow().left_aligned())
-                .collect::<Vec<Line>>(),
-        };
+    pub fn style(&self, width: usize, role: String) -> Vec<Line> {
+        let mut lines: Vec<Line> = vec![];
+
+        match self.sender {
+            MessageSender::User => {
+                lines.push(
+                    Line::raw(format!(
+                        "{}💻 You 💻┐",
+                        "─".repeat(width.saturating_sub(12)),
+                    ))
+                    .right_aligned()
+                    .bold()
+                    .yellow(),
+                );
+                lines.extend(
+                    self.message
+                        .lines()
+                        .map(|m| Line::from(m).right_aligned().yellow())
+                        .collect::<Vec<Line>>(),
+                )
+            }
+            MessageSender::Assistant => {
+                let mut header_spans = vec![];
+                header_spans.push(Span::raw("┌🤖 GPT"));
+                if role.is_empty() {
+                    header_spans.push(Span::raw(" 🤖"))
+                } else {
+                    header_spans.push(Span::raw(" - "));
+                    header_spans.push(Span::raw(format!("{}", role)).on_dark_gray());
+                    header_spans.push(Span::raw(" 🤖"));
+                }
+                header_spans.push(Span::raw(format!(
+                    "{}",
+                    "─"
+                        .to_string()
+                        .repeat(width.saturating_sub(15 + role.len()))
+                )));
+
+                lines.push(Line::from(header_spans).left_aligned().bold().light_green());
+                lines.extend(
+                    self.message
+                        .lines()
+                        .map(|m| Line::from(m).left_aligned())
+                        .collect::<Vec<Line>>(),
+                )
+            }
+        }
         lines.push(Line::from("").centered());
         lines
     }
@@ -49,6 +81,7 @@ pub struct AppState {
     pub chat_history: Vec<Message>,
     pub disable_chat: bool,
     pub scroll: u16,
+    pub terminal_has_been_active: bool,
 }
 
 impl AppState {
@@ -62,13 +95,17 @@ impl AppState {
             chat_history: Vec::new(),
             disable_chat: false,
             scroll: 0,
+            terminal_has_been_active: false,
         }
     }
 
     pub fn change_mode(&mut self) {
         match self.current_mode {
             Mode::Chat => self.current_mode = Mode::Terminal,
-            Mode::Terminal => self.current_mode = Mode::Chat,
+            Mode::Terminal => {
+                self.terminal_has_been_active = true;
+                self.current_mode = Mode::Chat
+            }
         }
     }
 
