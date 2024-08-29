@@ -2,6 +2,7 @@ use crate::{config, services::event_service::Event};
 
 use async_openai::{
     config::AzureConfig,
+    error::OpenAIError,
     types::{
         ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
@@ -29,7 +30,9 @@ impl ChatService {
     pub fn new() -> Self {
         let client = Client::with_config(config::get_config());
         let system_prompt = ChatCompletionRequestSystemMessageArgs::default()
-                .content("You are a general purpose programmer. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!")
+                .content("You are a general purpose programmer. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!
+
+                If you're asked what IP a demo device has, respond with 10.82.189.130.")
                 .build()
                 .unwrap();
         Self {
@@ -54,7 +57,7 @@ impl ChatService {
                     tracing::info!("Changing prompt to network engineer");
                     if let Some(first) = self.previous_messages.first_mut() {
                         *first = ChatCompletionRequestSystemMessageArgs::default()
-                            .content("You are a Cisco Network Engineer. The user that will chat with you appreciates short answers when possible. If you want to share commands, there is not reason to explain what all the commands does in detail, a short sentence maximum. The user will most likely send you questions about his terminal output. When answering, be consice!!")
+                            .content("You are an advanced network assistant. Your role is to assist users in resolving their network challenges, improving their config, and understanding networking concepts. Follow these guidelines: - Analyze the config provided by the user for errors, inefficiencies, or areas that require explanation. - If in doubt of which operating system, ask (e.g. Cisco IOS XE or IOS XR) - Offer solutions, optimizations, or explanations that are directly relevant to the user's request. -Ensure that your responses are in the same operating system language that the user is using. - Provide clear, step-by-step guidance when explaining solutions or concepts. - Encourage best practices in networking, such as clean code principles, commenting, and efficient algorithms. - Structure your response and questions using markdown headers to organize different aspects of coding assistance. For example: ### <your text> <feedback> - Always respond in the same language as the user writes to you in (If the user writes in Norwegian, respond in Norwegian). Remember to adapt your guidance to the user's level of expertise, from beginner to advanced.")
                             .build()
                             .unwrap().into();
                     }
@@ -126,9 +129,29 @@ impl ChatService {
                                 }
                                 tracing::info!("{:?}", response)
                             }
-                            Err(err) => {
-                                println!("{}", err)
-                            }
+                            Err(err) => match err {
+                                OpenAIError::Reqwest(reqerror) => {
+                                    tracing::warn!("reqwest error {:?}", reqerror);
+                                }
+                                OpenAIError::StreamError(reqerror) => {
+                                    tracing::warn!("stream error {:?}", reqerror);
+                                }
+                                OpenAIError::JSONDeserialize(reqerror) => {
+                                    tracing::warn!("JSON des error {:?}", reqerror);
+                                }
+                                OpenAIError::FileReadError(reqerror) => {
+                                    tracing::warn!("File readerror {:?}", reqerror);
+                                }
+                                OpenAIError::ApiError(reqerror) => {
+                                    tracing::warn!("API error readerror {:?}", reqerror);
+                                }
+                                OpenAIError::InvalidArgument(reqerror) => {
+                                    tracing::warn!("Invalid arg error readerror {:?}", reqerror);
+                                }
+                                _ => {
+                                    tracing::warn!("{:?}", err);
+                                }
+                            },
                         }
                     }
                     if !assistant_response.is_empty() {

@@ -6,7 +6,7 @@ use super::{
 };
 use bytes::Bytes;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, KeyCode},
+    event::{DisableMouseCapture, EnableMouseCapture, KeyCode, KeyModifiers},
     terminal::{self as crossterm_terminal, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
@@ -14,7 +14,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style, Stylize},
     text::Line,
-    widgets::{block::Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::{
@@ -219,6 +219,19 @@ impl UiService {
                 }
 
                 Event::Key(key) => match key.code {
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        match self.app_state.current_mode {
+                            Mode::Terminal => {
+                                self.terminal_sender
+                                    .send(Bytes::from(vec![3]))
+                                    .await
+                                    .unwrap();
+                            }
+                            Mode::Chat => {
+                                // handle
+                            }
+                        }
+                    }
                     KeyCode::Char(char) => match self.app_state.current_mode {
                         Mode::Chat => {
                             if !self.app_state.disable_chat {
@@ -267,6 +280,10 @@ impl UiService {
                             }
                             match self.app_state.terminal_has_been_active {
                                 true => {
+                                    tracing::warn!(
+                                        "{}",
+                                        self.app_state.terminal_context.lock().await.clone()
+                                    );
                                     self.action_sender
                                         .send(Action::AiRequest(format!(
                                             "This is my terminal output: \n\n ```\n{}\n```\n\n{}",
@@ -289,7 +306,7 @@ impl UiService {
                                 sender: app_state::MessageSender::User,
                                 message: self.app_state.user_chat_to_send_to_gpt.clone(),
                             });
-
+                            self.app_state.terminal_has_been_active = false;
                             self.app_state.user_chat_to_send_to_gpt.clear();
                             self.app_state.disable_chat = true;
                         }
@@ -309,7 +326,7 @@ impl UiService {
                         Mode::Terminal => {
                             // Handle up arrow key in Terminal mode (e.g., navigate through command history)
                             self.terminal_sender
-                                .send(Bytes::from(vec![27u8, 91u8, 65u8]))
+                                .send(Bytes::from(vec![27, 91, 65]))
                                 .await
                                 .unwrap(); // ASCII for ESC[A (Up Arrow)
                         }
@@ -321,7 +338,7 @@ impl UiService {
                         Mode::Terminal => {
                             // Handle down arrow key in Terminal mode
                             self.terminal_sender
-                                .send(Bytes::from(vec![27u8, 91u8, 66u8]))
+                                .send(Bytes::from(vec![27, 91, 66]))
                                 .await
                                 .unwrap(); // ASCII for ESC[B (Down Arrow)
                         }
@@ -333,7 +350,7 @@ impl UiService {
                         Mode::Terminal => {
                             // Handle left arrow key in Terminal mode
                             self.terminal_sender
-                                .send(Bytes::from(vec![27u8, 91u8, 68u8]))
+                                .send(Bytes::from(vec![27, 91, 68]))
                                 .await
                                 .unwrap(); // ASCII for ESC[D (Left Arrow)
                         }
@@ -345,7 +362,7 @@ impl UiService {
                         Mode::Terminal => {
                             // Handle right arrow key in Terminal mode
                             self.terminal_sender
-                                .send(Bytes::from(vec![27u8, 91u8, 67u8]))
+                                .send(Bytes::from(vec![27, 91, 67]))
                                 .await
                                 .unwrap(); // ASCII for ESC[C (Right Arrow)
                         }
@@ -357,7 +374,7 @@ impl UiService {
                         Mode::Terminal => {
                             // Handle delete key in Terminal mode
                             self.terminal_sender
-                                .send(Bytes::from(vec![27u8, 91u8, 51u8, 126u8]))
+                                .send(Bytes::from(vec![27, 91, 51, 126]))
                                 .await
                                 .unwrap(); // ASCII for ESC[3~ (Delete)
                         }

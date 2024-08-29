@@ -21,10 +21,11 @@ pub fn new(
     let mut cmd = CommandBuilder::new_default_prog();
     cmd.cwd(cwd);
 
+    let adjusted_width = (terminal.size().unwrap().width as f32 * 0.57).floor() as u16;
     let pair = pty_system
         .openpty(PtySize {
-            rows: terminal.size().unwrap().height,
-            cols: terminal.size().unwrap().width,
+            rows: terminal.size().unwrap().height - 5,
+            cols: adjusted_width,
             pixel_width: 0,
             pixel_height: 0,
         })
@@ -46,26 +47,29 @@ pub fn new(
     {
         let parser = parser.clone();
         task::spawn(async move {
-            // Consume the output from the child
-            // Can't read the full buffer, since that would wait for EOF
-            let mut buf = [0u8; 8192];
-            let mut processed_buf = Vec::new();
+            let mut buf = [0u8; 8192]; // Temporary buffer for each read operation
+
             loop {
                 let size = reader.read(&mut buf).unwrap();
+
                 if size == 0 {
-                    break;
+                    break; // Exit loop when EOF is reached
                 }
-                if size > 0 {
-                    processed_buf.extend_from_slice(&buf[..size]);
-                    let mut parser = parser.write().await;
-                    parser.process(&processed_buf);
 
-                    let mut terminal_context = terminal_context.lock().await;
-                    *terminal_context = parser.screen().contents();
+                // Process the current batch of data
+                let mut parser = parser.write().await;
+                parser.process(&buf[..size]);
 
-                    // Clear the processed portion of the buffer
-                    processed_buf.clear();
-                }
+                // Convert the newly read data to a String
+                let new_data = String::from_utf8_lossy(&buf[..size]);
+
+                // Append the new data to terminal_context
+                let mut terminal_context = terminal_context.lock().await;
+                terminal_context.push_str(&new_data);
+
+                // Update terminal context with screen contents if needed
+                // If you also want to update the screen contents, you can do it here
+                // Example: append `parser.screen().contents()` to `terminal_context` as well
             }
         });
     }
