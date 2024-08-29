@@ -88,10 +88,3 @@ pub fn new(
 
     (parser, terminal_sender)
 }
-
-pub fn scroll_terminal(parser: Arc<RwLock<vt100::Parser>>, lines: i32) {
-    task::spawn(async move {
-        let mut parser = parser.write().await;
-        parser.screen_mut().scroll_up(lines);
-    });
-}

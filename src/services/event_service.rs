@@ -77,11 +77,11 @@ impl EventService {
                         }
                         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             tracing::info!("Scroll up : {:?}", key);
-                            Some(Event::ScrollUp)
+                            Some(Event::ScrollUpTerminal)
                         }
                         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             tracing::info!("Scroll down : {:?}", key);
-                            Some(Event::ScrollDown)
+                            Some(Event::ScrollDownTerminal)
                         }
                         KeyCode::Char('U') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             tracing::info!("Scroll up terminal : {:?}", key);

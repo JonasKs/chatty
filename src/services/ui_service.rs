@@ -218,10 +218,20 @@ impl UiService {
                     self.app_state.scroll = self.app_state.scroll.saturating_sub(1)
                 }
                 Event::ScrollUpTerminal => {
-                    self.app_state.terminal_scroll = self.app_state.terminal_scroll.saturating_add(1)
+                    self.app_state.terminal_scroll =
+                        self.app_state.terminal_scroll.saturating_add(1);
+                    parser
+                        .write()
+                        .await
+                        .set_scrollback(self.app_state.terminal_scroll.into());
                 }
                 Event::ScrollDownTerminal => {
-                    self.app_state.terminal_scroll = self.app_state.terminal_scroll.saturating_sub(1)
+                    self.app_state.terminal_scroll =
+                        self.app_state.terminal_scroll.saturating_sub(1);
+                    parser
+                        .write()
+                        .await
+                        .set_scrollback(self.app_state.terminal_scroll.into());
                 }
 
                 Event::Key(key) => match key.code {
@@ -240,7 +250,7 @@ impl UiService {
                     }
                     KeyCode::Char(char) => match self.app_state.current_mode {
                         Mode::Chat => {
-                            if (!self.app_state.disable_chat) {
+                            if !self.app_state.disable_chat {
                                 self.app_state
                                     .user_chat_to_send_to_gpt
                                     .push_str(&char.to_string())
