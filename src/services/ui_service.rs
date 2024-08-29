@@ -217,6 +217,12 @@ impl UiService {
                 Event::ScrollDown => {
                     self.app_state.scroll = self.app_state.scroll.saturating_sub(1)
                 }
+                Event::ScrollUpTerminal => {
+                    self.app_state.terminal_scroll = self.app_state.terminal_scroll.saturating_add(1)
+                }
+                Event::ScrollDownTerminal => {
+                    self.app_state.terminal_scroll = self.app_state.terminal_scroll.saturating_sub(1)
+                }
 
                 Event::Key(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -234,7 +240,7 @@ impl UiService {
                     }
                     KeyCode::Char(char) => match self.app_state.current_mode {
                         Mode::Chat => {
-                            if !self.app_state.disable_chat {
+                            if (!self.app_state.disable_chat) {
                                 self.app_state
                                     .user_chat_to_send_to_gpt
                                     .push_str(&char.to_string())
