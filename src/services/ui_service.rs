@@ -217,6 +217,22 @@ impl UiService {
                 Event::ScrollDown => {
                     self.app_state.scroll = self.app_state.scroll.saturating_sub(1)
                 }
+                Event::ScrollUpTerminal => {
+                    self.app_state.terminal_scroll =
+                        self.app_state.terminal_scroll.saturating_add(1);
+                    parser
+                        .write()
+                        .await
+                        .set_scrollback(self.app_state.terminal_scroll.into());
+                }
+                Event::ScrollDownTerminal => {
+                    self.app_state.terminal_scroll =
+                        self.app_state.terminal_scroll.saturating_sub(1);
+                    parser
+                        .write()
+                        .await
+                        .set_scrollback(self.app_state.terminal_scroll.into());
+                }
 
                 Event::Key(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {

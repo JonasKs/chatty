@@ -82,6 +82,7 @@ pub struct AppState {
     pub disable_chat: bool,
     pub scroll: u16,
     pub terminal_has_been_active: bool,
+    pub terminal_scroll: u16, // Pb19b
 }
 
 impl AppState {
@@ -96,6 +97,7 @@ impl AppState {
             disable_chat: false,
             scroll: 0,
             terminal_has_been_active: false,
+            terminal_scroll: 0, // P1d84
         }
     }
 
