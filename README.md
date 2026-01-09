@@ -2,7 +2,7 @@
 
 A proof of concept terminal emulator with an AI chat sidebar. Your terminal output is automatically injected into chat context, so you can ask questions about what's happening in your shell without copy/pasting.
 
-Built in the summer of 2022, **before Claude Code or Codex CLI existed.**
+Built in the summer of 2024, **before Claude Code or Codex CLI existed.** Open sourced in 2026.
 
 [![demo](demo-2x-speed.gif)](https://share.klepp.me/?path=hotfix/ai-psuedo-terminal-2x-speed.mp4)
 (Click the gif to watch it in video format)
