@@ -1,4 +1,4 @@
-# Terminal AI Ops
+# ChaTTY
 
 A proof of concept terminal emulator with an AI chat sidebar. Your terminal output is automatically injected into chat context, so you can ask questions about what's happening in your shell without copy/pasting.
 
